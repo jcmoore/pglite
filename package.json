@@ -16,8 +16,12 @@
     "wasm:copy-pglite": "mkdir -p ./packages/pglite/release/ && cp ./postgres-pglite/dist/bin/pglite.* ./packages/pglite/release/ && cp ./postgres-pglite/dist/extensions/*.tar.gz ./packages/pglite/release/",
     "wasm:build": "cd postgres-pglite && ./build-with-docker.sh && cd .. && pnpm wasm:copy-pglite && pnpm wasm:copy-pgdump",
     "wasm:build:debug": "DEBUG=true pnpm wasm:build",
+    "wasm:build:limited": "cd postgres-pglite && ./build-with-docker-limited.sh && cd .. && pnpm wasm:copy-pglite && pnpm wasm:copy-pgdump",
+    "wasm:build:limited:debug": "DEBUG=true pnpm wasm:build:limited",
     "build:all": "pnpm wasm:build && pnpm ts:build",
-    "build:all:debug": "DEBUG=true pnpm build:all"
+    "build:all:debug": "DEBUG=true pnpm build:all",
+    "build:all:limited": "pnpm wasm:build:limited && pnpm ts:build",
+    "build:all:limited:debug": "DEBUG=true pnpm build:all:limited"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",

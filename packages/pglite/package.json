@@ -144,6 +144,16 @@
         "types": "./dist/pg_hashids/index.d.cts",
         "default": "./dist/pg_hashids/index.cjs"
       }
+    },
+    "./rum": {
+      "import": {
+        "types": "./dist/rum/index.d.ts",
+        "default": "./dist/rum/index.js"
+      },
+      "require": {
+        "types": "./dist/rum/index.d.cts",
+        "default": "./dist/rum/index.cjs"
+      }
     }
   },
   "type": "module",

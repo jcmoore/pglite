@@ -214,7 +214,39 @@ From PGlite's base folder:
 $ pnpm build:all
 ```
 
-This will build **everything**, including your new extension. If there are no errors, you are ready to run the tests!
+This will build **everything**, including your new extension. The `build:all` command runs the following steps in order:
+
+1. **`pnpm wasm:build`** - Compiles PostgreSQL and all extensions to WebAssembly using Docker
+   - Runs `build-with-docker.sh` inside the `postgres-pglite` directory
+   - The Docker container uses the `electricsql/pglite-builder` image with Emscripten
+   - Extension `.tar.gz` archives are created in `postgres-pglite/dist/extensions/`
+   - The main `pglite.wasm`, `pglite.js`, and `pglite.data` files are created in `postgres-pglite/dist/bin/`
+
+2. **`pnpm wasm:copy-pglite`** - Copies the WASM build artifacts to the pglite package
+   - Copies `pglite.*` files from `postgres-pglite/dist/bin/` to `packages/pglite/release/`
+   - Copies extension `.tar.gz` files from `postgres-pglite/dist/extensions/` to `packages/pglite/release/`
+   - **Important**: This step must be run after every WASM build to update the TypeScript package
+
+3. **`pnpm ts:build`** - Compiles the TypeScript/JavaScript code
+   - Runs `tsup` to build the pglite package
+   - Copies release files to `packages/pglite/dist/`
+
+::: tip Memory-Constrained Environments
+If you're building in a memory-constrained environment (e.g., Podman with limited RAM), use the limited parallelism build:
+
+```
+$ pnpm build:all:limited
+```
+
+This uses `-j2` parallelism instead of unlimited parallelism, which requires less memory. Unlimited parallelism requires more than 4GB RAM; with `-j2` parallelism, 8GB RAM is sufficient.
+
+You can also control the parallelism with the `JOBS` environment variable:
+```
+$ JOBS=4 pnpm wasm:build:limited
+```
+:::
+
+If there are no errors, you are ready to run the tests!
 
 ```
 $ cd packages/pglite
