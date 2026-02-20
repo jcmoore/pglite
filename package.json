@@ -17,7 +17,8 @@
     "wasm:build": "cd postgres-pglite && ./build-with-docker.sh && cd .. && pnpm wasm:copy-pglite && pnpm wasm:copy-pgdump",
     "wasm:build:debug": "DEBUG=true pnpm wasm:build",
     "build:all": "pnpm wasm:build && pnpm ts:build",
-    "build:all:debug": "DEBUG=true pnpm build:all"
+    "build:all:debug": "DEBUG=true pnpm build:all",
+    "clean:state": "./scripts/clean-build-state.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
