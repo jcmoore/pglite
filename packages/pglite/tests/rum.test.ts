@@ -77,5 +77,88 @@ await testEsmCjsAndDTC(async (importType) => {
 
       expect(indexMeta.rows).toEqual([{ amname: 'rum' }])
     })
+
+    it('supports proximity ordering with int4 addon data', async () => {
+      const pg = new PGlite({
+        extensions: { rum },
+      })
+
+      await pg.exec('CREATE EXTENSION IF NOT EXISTS rum;')
+      await pg.exec(`
+        CREATE TABLE test_rum_proximity (
+          id SERIAL PRIMARY KEY,
+          t TEXT,
+          a tsvector,
+          pos int4
+        );
+
+        INSERT INTO test_rum_proximity (t, a, pos) VALUES
+          ('beautiful alpha', to_tsvector('english', 'beautiful alpha'), 5),
+          ('beautiful beta', to_tsvector('english', 'beautiful beta'), 20),
+          ('beautiful gamma', to_tsvector('english', 'beautiful gamma'), 30),
+          ('beautiful delta', to_tsvector('english', 'beautiful delta'), 60);
+
+        CREATE INDEX rumidx_proximity ON test_rum_proximity
+          USING rum (a rum_tsvector_addon_ops, pos rum_int4_ops)
+          WITH (attach = 'pos', to = 'a');
+      `)
+
+      const res = await pg.query<{ t: string; pos: number; distance: number }>(`
+        SELECT t, pos, pos <=> 27::int4 AS distance
+        FROM test_rum_proximity
+        WHERE a @@ to_tsquery('english', 'beautiful')
+        ORDER BY pos <=> 27::int4, id
+        LIMIT 4
+      `)
+
+      expect(res.rows.map((r) => r.t)).toEqual([
+        'beautiful gamma',
+        'beautiful beta',
+        'beautiful alpha',
+        'beautiful delta',
+      ])
+      expect(res.rows.map((r) => r.distance)).toEqual([3, 7, 22, 33])
+    })
+
+    it('supports proximity ordering with timestamp addon data', async () => {
+      const pg = new PGlite({
+        extensions: { rum },
+      })
+
+      await pg.exec('CREATE EXTENSION IF NOT EXISTS rum;')
+      await pg.exec(`
+        CREATE TABLE test_rum_ts_proximity (
+          id SERIAL PRIMARY KEY,
+          t TEXT,
+          a tsvector,
+          ts timestamp
+        );
+
+        INSERT INTO test_rum_ts_proximity (t, a, ts) VALUES
+          ('beautiful early', to_tsvector('english', 'beautiful early'), '2016-05-16 14:21:22'),
+          ('beautiful near', to_tsvector('english', 'beautiful near'), '2016-05-16 14:21:24'),
+          ('beautiful target', to_tsvector('english', 'beautiful target'), '2016-05-16 14:21:25'),
+          ('beautiful late', to_tsvector('english', 'beautiful late'), '2016-05-16 14:21:40');
+
+        CREATE INDEX rumidx_ts_proximity ON test_rum_ts_proximity
+          USING rum (a rum_tsvector_addon_ops, ts rum_timestamp_ops)
+          WITH (attach = 'ts', to = 'a');
+      `)
+
+      const res = await pg.query<{ t: string }>(`
+        SELECT t
+        FROM test_rum_ts_proximity
+        WHERE a @@ to_tsquery('english', 'beautiful')
+        ORDER BY ts <=> '2016-05-16 14:21:25'::timestamp, id
+        LIMIT 4
+      `)
+
+      expect(res.rows.map((r) => r.t)).toEqual([
+        'beautiful target',
+        'beautiful near',
+        'beautiful early',
+        'beautiful late',
+      ])
+    })
   })
 })
