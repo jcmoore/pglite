@@ -575,6 +575,20 @@ const baseExtensions: Extension[] = [
     importName: 'pg_hashids',
     size: 4212,
   },
+  {
+    name: 'rum',
+    description: `
+      RUM is an inverted index access method based on GIN for full-text search.
+      It stores additional information in posting trees to speed up ranking and
+      phrase/proximity searches.
+    `,
+    shortDescription: 'GIN-based inverted index access method for full-text search.',
+    docs: 'https://github.com/postgrespro/rum',
+    tags: ['postgres extension'],
+    importPath: '@electric-sql/pglite/rum',
+    importName: 'rum',
+    size: 62587,
+  },
 ]
 
 const tags = [

@@ -80,6 +80,7 @@ async function main() {
     ['.cjs'],
   )
   await findAndReplaceInDir('./dist/pg_hashids', /\.\.\/release\//g, '', ['.js', '.cjs'])
+  await findAndReplaceInDir('./dist/rum', /\.\.\/release\//g, '', ['.js', '.cjs'])
 }
 
 await main()
