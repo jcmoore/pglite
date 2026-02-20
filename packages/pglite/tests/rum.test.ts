@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { testEsmCjsAndDTC } from './test-utils.ts'
 
 await testEsmCjsAndDTC(async (importType) => {
@@ -187,7 +190,7 @@ await testEsmCjsAndDTC(async (importType) => {
       ).toBe(true)
     })
 
-    it('reports known limitation for anyarray addon ORDER BY proximity over timestamp in wasm32', async () => {
+    it('supports anyarray addon ORDER BY proximity over fixed-length pass-by-reference timestamp', async () => {
       const pg = new PGlite({
         extensions: {
           rum,
@@ -205,22 +208,84 @@ await testEsmCjsAndDTC(async (importType) => {
 
         INSERT INTO tagged_events (tags, event_time) VALUES
           ('{1,2}', '2024-01-01 10:00:00'),
-          ('{1,3}', '2024-01-01 10:10:00');
+          ('{1,3}', '2024-01-01 10:09:00');
 
         CREATE INDEX tagged_events_tags_rum_idx ON tagged_events
           USING rum (tags rum_anyarray_addon_ops, event_time)
           WITH (attach = 'event_time', to = 'tags');
       `)
 
-      await expect(
-        pg.query(`
+      const res = await pg.query<{ id: number }>(`
+        SELECT id
+        FROM tagged_events
+        WHERE tags && '{1}'::int2[]
+        ORDER BY event_time |=> '2024-01-01 10:05:00'::timestamp
+        LIMIT 1
+      `)
+
+      expect(res.rows).toEqual([{ id: 1 }])
+    })
+
+    it('keeps timestamp addon ORDER BY behavior across restart', async () => {
+      const dataDir = mkdtempSync(join(tmpdir(), 'pglite-rum-'))
+
+      try {
+        let pg = new PGlite({
+          dataDir,
+          extensions: {
+            rum,
+          },
+        })
+
+        await pg.exec(`
+          CREATE EXTENSION IF NOT EXISTS rum;
+
+          CREATE TABLE tagged_events (
+            id SERIAL PRIMARY KEY,
+            tags int2[] NOT NULL,
+            event_time timestamp NOT NULL
+          );
+
+          INSERT INTO tagged_events (tags, event_time) VALUES
+            ('{1,2}', '2024-01-01 10:00:00'),
+            ('{1,3}', '2024-01-01 10:09:00');
+
+          CREATE INDEX tagged_events_tags_rum_idx ON tagged_events
+            USING rum (tags rum_anyarray_addon_ops, event_time)
+            WITH (attach = 'event_time', to = 'tags');
+        `)
+
+        const beforeRestart = await pg.query<{ id: number }>(`
           SELECT id
           FROM tagged_events
           WHERE tags && '{1}'::int2[]
           ORDER BY event_time |=> '2024-01-01 10:05:00'::timestamp
           LIMIT 1
-        `),
-      ).rejects.toThrow(/doesn't support order by over pass-by-reference column/)
+        `)
+
+        expect(beforeRestart.rows).toEqual([{ id: 1 }])
+
+        await pg.close()
+
+        pg = new PGlite({
+          dataDir,
+          extensions: {
+            rum,
+          },
+        })
+
+        const afterRestart = await pg.query<{ id: number }>(`
+          SELECT id
+          FROM tagged_events
+          WHERE tags && '{1}'::int2[]
+          ORDER BY event_time |=> '2024-01-01 10:05:00'::timestamp
+          LIMIT 1
+        `)
+
+        expect(afterRestart.rows).toEqual([{ id: 1 }])
+      } finally {
+        rmSync(dataDir, { recursive: true, force: true })
+      }
     })
   })
 })
