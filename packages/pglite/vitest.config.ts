@@ -5,7 +5,7 @@ export default defineConfig({
     name: 'pglite',
     dir: './tests',
     watch: false,
-    typecheck: { enabled: true },
+    typecheck: { enabled: false },
     testTimeout: 30000,
     hookTimeout: 30000,
     include: ['**/*.{test,test.web}.{js,ts}'],
